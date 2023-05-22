@@ -5,6 +5,8 @@ const mongoose = require('mongoose');
 
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
+
 const User = require('./models/User.js');
 const Place = require('./models/Place.js');
 const Booking = require('./models/Booking.js');
@@ -36,7 +38,7 @@ app.use(cors(
 ));
 app.use(express.json());
 app.use(cookieParser());
-
+app.use('/uploads', express.static(__dirname+'/uploads'));
 function getUserDataFromReq(req) {
     return new Promise((resolve, reject) => {
       jwt.verify(req.cookies.token, jwtSecret, {}, async (err, userData) => {
@@ -106,6 +108,32 @@ app.post('/api/logout', (req,res) => {
     res.cookie('token', '').json(true);
 });
 
+app.post('/api/upload-by-link', async (req,res) => {
+  const {link} = req.body;
+  const newName = 'photo' + Date.now() + '.jpg';
+  await imageDownloader.image({
+    url: link,
+    dest: __dirname + '/uploads/' + newName
+  });
+  res.json(newName);
+});
+
+const photosMiddleware = multer({dest:'uploads'});
+app.post('/api/upload', photosMiddleware.array('photos', 100), async (req,res) => {
+  const uploadedFiles = [];
+  for (let i = 0; i < req.files.length; i++) {
+    const {path,originalname} = req.files[i];
+    const parts=originalname.split('.');
+    const ext=parts[parts.length - 1]
+    const newPath=path + '.' + ext;
+    fs.renameSync(path,newPath);
+    const dd=newPath.replace('uploads','')
+    console.log(dd);
+    uploadedFiles.push(dd)
+  }
+  res.json(uploadedFiles);
+});
+
 app.post('/api/places', (req,res) => {
     const {token} = req.cookies;
     const {
@@ -124,6 +152,8 @@ app.post('/api/places', (req,res) => {
 });
 
 app.get('/api/user-places', (req,res) => {
+    const {token} = req.cookies;
+
     jwt.verify(token, jwtSecret, {}, async (err, userData) => {
       const {id} = userData;
       res.json( await Place.find({owner:id}) );
