@@ -63,6 +63,7 @@ app.post('/api/register', async (req,res) => {
         name,
         email,
         password:bcrypt.hashSync(password, bcryptSalt),
+        isAdmin:false
       });
       res.json(userDoc);
     } catch (e) {
@@ -78,7 +79,8 @@ app.post('/api/login', async (req,res) => {
       if (passOk) {
         jwt.sign({
           email:userDoc.email,
-          id:userDoc._id
+          id:userDoc._id,
+          isAdmin:userDoc.isAdmin
         }, jwtSecret, {}, (err,token) => {
           if (err) throw err;
           res.cookie('token', token).json(userDoc);
@@ -96,8 +98,8 @@ app.get('/api/profile', (req,res) => {
     if (token) {
       jwt.verify(token, jwtSecret, {}, async (err, userData) => {
         if (err) throw err;
-        const {name,email,_id} = await User.findById(userData.id);
-        res.json({name,email,_id});
+        const {name,email,_id,isAdmin} = await User.findById(userData.id);
+        res.json({name,email,_id,isAdmin});
       });
     } else {
       res.json(null);
@@ -156,7 +158,7 @@ app.get('/api/user-places', (req,res) => {
 
     jwt.verify(token, jwtSecret, {}, async (err, userData) => {
       const {id} = userData;
-      res.json( await Place.find({owner:id}) );
+      res.json( await Place.find({}) );
     });
 });
   
